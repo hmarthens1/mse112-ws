@@ -29,7 +29,7 @@ while True:
     if count % 3 != 0: #Checks if the current frame count is not a multiple of three.
         continue #Skips processing for this frame if the frame count is not a multiple of three. This effectively processes every third frame.
 
-    frame = cv2.flip(frame, -1)
+    # frame = cv2.flip(frame, -1)
     cv2.imshow("Camera", frame) # Displays the flipped frame in a window named "Camera".
 
     results = model.predict(frame) #Uses the YOLO model to predict objects in the current frame.

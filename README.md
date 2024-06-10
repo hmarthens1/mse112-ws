@@ -76,6 +76,19 @@ sudo pip install ultralytics
 sudo pip install cvzone
 ```
 
+# example for yolov8
+
+run the cam.py file
+
+```
+cd ~/mse112-ws/yolov8
+```
+
+```
+python cam.py
+```
+
+
 
 
 

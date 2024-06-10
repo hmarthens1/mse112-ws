@@ -1032,8 +1032,8 @@ class MainWindow(QtWidgets.QWidget, Ui_Form):
             else:
                 self.message_From('success！')
         elif buttonName == 'connect':
-#             self.cap = cv2.VideoCapture(-1)
-            self.cap = cv2.VideoCapture('http://127.0.0.1:8080?action=stream')
+            self.cap = cv2.VideoCapture(-1)
+            # self.cap = cv2.VideoCapture('http://127.0.0.1:8080?action=stream')
             if not self.cap.isOpened():
                 self.label_process.setText('Can\'t find camera')
                 self.label_orign.setText('Can\'t find camera')

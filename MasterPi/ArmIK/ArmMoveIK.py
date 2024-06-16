@@ -96,8 +96,8 @@ class ArmIK:
             if result:
                 theta3, theta4, theta5, theta6 = result['theta3'], result['theta4'], result['theta5'], result['theta6']               
                 servos = self.transformAngelAdaptArm(theta3, theta4, theta5, theta6)
-                print("printing angles:\n")
-                print(servos)
+                # print("printing angles:\n")
+                # print(servos)
                 if servos != False:
                     return servos, alpha
 
@@ -132,7 +132,7 @@ if __name__ == "__main__":
     #setPWMServoPulse(1, 1450, 1500)
     #AK.setPitchRangeMoving((-5,0,2), -90,-90, 90, 1200)
 #     print(ik.getLinkLength())
-    print(AK.setPitchRangeMoving((0,6,18),0,-90, 90))
-    time.sleep(2)
+    # print(AK.setPitchRangeMoving((0,6,18),0,-90, 90))
+    # time.sleep(2)
     #print(AK.setPitchRangeMoving((-4.8, 15, 1.5), 0, -90, 0, 2000))
     #AK.drawMoveRange2D(-10, 10, 0.2, 10, 30, 0.2, 2.5, -90, 90, 1)

@@ -168,14 +168,14 @@ def move():
     
     #coordinates for pick and place
     coordinate = {
-        'place':   (18, 0, 4),
-        'pick': (-18, 9,  2),
+        'place':   (-18, 2, 1),
+        'pick': (0, 10,  2),
     }
 
     while True:
         if __isRunning:
                 
-                # initMove()
+                initMove()
                 
                 # Pick
                 print("Pick and Place Start\n")

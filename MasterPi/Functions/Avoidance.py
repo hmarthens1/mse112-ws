@@ -14,7 +14,7 @@ from ArmIK.Transform import *
 from ArmIK.ArmMoveIK import *
 import HiwonderSDK.mecanum as mecanum
 
-# 超声波避障
+# Ultrasonic obstacle avoidance
 
 AK = ArmIK()
 chassis = mecanum.MecanumChassis()
@@ -33,16 +33,16 @@ __isRunning = False
 __until = 0
 
 
-# 夹持器夹取时闭合的角度
+# The closing angle of the gripper when gripping
 servo1 = 1500
 
-# 初始位置
+# initial position
 def initMove():
     chassis.set_velocity(0,0,0)
     Board.setPWMServoPulse(1, servo1, 300)
     AK.setPitchRangeMoving((0, 6, 18), 0,-90, 90, 1500)
 
-# 变量重置
+# Variable reset
 def reset():
     global __isRunning
     global Threshold
@@ -60,14 +60,14 @@ def reset():
     stopMotor = True
     __isRunning = False
     
-# app初始化调用
+# app initialization call
 def init():
     print("Avoidance Init")
     initMove()
     reset()
     
 __isRunning = False
-# app开始玩法调用
+# app starts playing method call
 def start():
     global __isRunning
     global stopMotor
@@ -80,14 +80,14 @@ def start():
     __isRunning = True
     print("Avoidance Start")
 
-# app停止玩法调用
+# app stops playing method calls
 def stop():
     global __isRunning
     __isRunning = False
     chassis.set_velocity(0,0,0)
     print("Avoidance Stop")
 
-# app退出玩法调用
+# app exit gameplay call
 def exit():
     global __isRunning
     __isRunning = False
@@ -96,19 +96,19 @@ def exit():
     HWSONAR.setPixelColor(1, Board.PixelColor(0, 0, 0))
     print("Avoidance Exit")
 
-# 设置避障速度
+# Set obstacle avoidance speed
 def setSpeed(args):
     global speed
     speed = int(args[0])
     return (True, ())
  
-# 设置避障阈值    
+ # Set obstacle avoidance threshold  
 def setThreshold(args):
     global Threshold
     Threshold = args[0]
     return (True, (Threshold,))
 
-# 获取当前避障阈值
+# Get the current obstacle avoidance threshold
 def getThreshold(args):
     global Threshold
     return (True, (Threshold,))
@@ -137,8 +137,8 @@ def run(img):
     distance_data.append(dist)
     data = pd.DataFrame(distance_data)
     data_ = data.copy()
-    u = data_.mean()  # 计算均值
-    std = data_.std()  # 计算标准差
+    u = data_.mean()  # Calculate the mean
+    std = data_.std()  # Calculate standard deviation
 
     data_c = data[np.abs(data - u) <= std]
     distance = data_c.mean()[0]
@@ -147,11 +147,11 @@ def run(img):
         distance_data.remove(distance_data[0])
 
     if __isRunning:   
-        if speed != old_speed:   # 同样的速度值只设置一次 
+        if speed != old_speed:   # The same speed value is set only once
             old_speed = speed
             chassis.set_velocity(speed,90,0)
             
-        if distance <= Threshold:   # 检测是否达到距离阈值
+        if distance <= Threshold:   # Check if the distance threshold is reached
             if turn:
                 turn = False
                 forward = True
@@ -168,21 +168,21 @@ def run(img):
     else:
         if stopMotor:
             stopMotor = False
-            chassis.set_velocity(0,0,0)  # 关闭所有电机
+            chassis.set_velocity(0,0,0)  # Turn off all motors
         turn = True
         forward = True
         time.sleep(0.03)
 
-    return cv2.putText(img, "Dist:%.1fcm"%distance, (30, 480-30), cv2.FONT_HERSHEY_SIMPLEX, 1.2, TextColor, 2)  # 把超声波测距值打印在画面上
+    return cv2.putText(img, "Dist:%.1fcm"%distance, (30, 480-30), cv2.FONT_HERSHEY_SIMPLEX, 1.2, TextColor, 2)  # Print the ultrasonic distance measurement value on the screen
 
 
-#关闭前处理
+#Close before processing
 def Stop(signum, frame):
     global __isRunning
     
     __isRunning = False
-    print('关闭中...')
-    chassis.set_velocity(0,0,0)  # 关闭所有电机
+    print('Closing...')
+    chassis.set_velocity(0,0,0)  # Turn off all motors
 
 if __name__ == '__main__':
     init()

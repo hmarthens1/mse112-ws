@@ -27,7 +27,7 @@ class IK:
         if self.arm_type == 'pump': #If it is an air pump type robotic arm
             self.l4 = sqrt(pow(self.l5, 2) + pow(self.l6, 2))  #The fourth servo to the nozzle acts as the fourth link
         elif self.arm_type == 'arm':
-            self.l4 = 10.00  #The distance from the fourth servo to the end of the robotic arm is 16.6cm. The end of the robotic arm refers to when the claws are fully closed.
+            self.l4 = 10.0  #The distance from the fourth servo to the end of the robotic arm is 16.6cm. The end of the robotic arm refers to when the claws are fully closed.
 
     def setLinkLength(self, L1=l1, L2=l2, L3=l3, L4=l4, L5=l5, L6=l6):
         # Change the connecting rod length of the robot arm to adapt to robots of the same structure with different lengths

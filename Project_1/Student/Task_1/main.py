@@ -65,15 +65,10 @@ if sys.version_info.major == 2:
     sys.exit(0)
 
 def servo_init():
-    Board.setPWMServoPulse(1, 2500, 300) # Set the pulse width of Servo 1 to 2500 and the running time to 1000 milliseconds
-    time.sleep(1)
-    Board.setPWMServoPulse(3, 1000, 300) 
-    time.sleep(1)
-    Board.setPWMServoPulse(4, 2000, 1000) 
-    time.sleep(1)
-    Board.setPWMServoPulse(5, 2100, 1000) 
-    time.sleep(1)
-    Board.setPWMServoPulse(6, 1500, 1000) 
+
+    # TODO 1. set the PWM of the Servos appropriately to position arm for line-tracking, use Board.setPWMServoPulse() 
+    # /.....enter code here...../
+
 
 # Set the detection color
 def setTargetColor(target_color):
@@ -201,10 +196,9 @@ def move():
                 tmp = 100 if tmp > 100 else tmp   
                 tmp = -100 if tmp < -100 else tmp
                 base_speed = Misc.map(tmp, -100, 100, -40, 40)  # Speed ​​mapping
-                Board.setMotor(1, int(40 - base_speed)) #Set motor speed
-                Board.setMotor(2, int(40 + base_speed))
-                Board.setMotor(3, int(40 - base_speed))
-                Board.setMotor(4, int(40 + base_speed))
+
+                # TODO 2. Given the base_speed from pid controller, Set motor speeds for motor 1, 2, 3 and 4, use  Board.setMotor()
+                # /.....enter code here...../
                 
             else:
                 MotorStop()
@@ -217,14 +211,17 @@ def move():
 
                     print("The obstacle distance is :\n")
 
+
+                    # TODO 3. Obstacle avoidance routine
+
                     # move left
-                    chassis.set_velocity(40,180,0)
+                    # /.....enter code here...../
                     time.sleep(1.5)
                     # move forward
-                    chassis.set_velocity(40,90,0)
+                    # /.....enter code here...../
                     time.sleep(1.5)
                     # move right
-                    chassis.set_velocity(50,0,0)
+                    # /.....enter code here...../
                     time.sleep(1.5)
                     print("complete, now turning off motors\n")
                     chassis.set_velocity(0,0,0)  # Turn off all motors
@@ -269,13 +266,11 @@ def line_tracking (img, __target_color):
         for i in lab_data:
             if i in __target_color:
                 detect_color = i
-                frame_mask = cv2.inRange(frame_lab,
-                                         (lab_data[i]['min'][0],
-                                          lab_data[i]['min'][1],
-                                          lab_data[i]['min'][2]),
-                                         (lab_data[i]['max'][0],
-                                          lab_data[i]['max'][1],
-                                          lab_data[i]['max'][2]))  #Perform bitwise operations on the original image and mask
+
+                # TODO create frame mask using cv2.inRange () function to perform bitwise operations on the original image
+
+                # /.....enter code here...../
+
                 eroded = cv2.erode(frame_mask, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))  #corrosion
                 dilated = cv2.dilate(eroded, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))) #Expansion
 
@@ -309,7 +304,6 @@ def line_tracking (img, __target_color):
         line_centerx = -1
     return img
 
-# def measure_distance():
 
 
 
@@ -333,18 +327,10 @@ def run(img, __target_color):
 
         distance = np.mean(distance_data)
 
-        if distance <= Threshold:
-            MotorStop()
-            stopMotor = True
-            obstacle = True
+        # TODO 4. Using measured distance value, write code to stop motors and change obstacle flag to true when obstacle is within certain threshold
+        # /.....enter code here...../
+        
 
-            print("Distance to obstacle:\n")
-            print(distance)
-            print("Reached obstacle!\n")
-            time.sleep(0.5)
-        else:
-            obstacle = False
-            stopMotor = False
         time.sleep(0.03)
 
         img = line_tracking(img,__target_color)

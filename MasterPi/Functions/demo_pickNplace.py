@@ -22,13 +22,6 @@ if sys.version_info.major == 2:
 AK = ArmIK()
 HWSONAR = Sonar.Sonar() #ultrasonic sensor
 
-range_rgb = {
-    'red':   (0, 0, 255),
-    'blue':  (255, 0, 0),
-    'green': (0, 255, 0),
-    'black': (0, 0, 0),
-    'white': (255, 255, 255),
-}
 
 lab_data = None
 def load_config():
@@ -36,38 +29,26 @@ def load_config():
     
     lab_data = yaml_handle.get_yaml_data(yaml_handle.lab_file_path)
 
-    __target_color = ('red')
-# Set detection color
-def setTargetColor(target_color):
-    global __target_color
+    
+def servo_init():
 
-    print("COLOR", target_color)
-    __target_color = target_color
-    return (True, ())
 
-#Find the contour with the largest area
-#The parameter is a list of contours to be compared
-def getAreaMaxContour(contours) :
-        contour_area_temp = 0
-        contour_area_max = 0
-        area_max_contour = None
+    Board.setPWMServoPulse(1, 2500, 300) # Set the pulse width of Servo 1 to 2500 and the running time to 1000 milliseconds
+    time.sleep(0.5)
+    Board.setPWMServoPulse(3, 800, 500) 
+    time.sleep(0.5)
+    Board.setPWMServoPulse(4, 2000, 500) 
+    time.sleep(0.5)
+    Board.setPWMServoPulse(5, 2100, 500) 
+    time.sleep(1)
+    Board.setPWMServoPulse(6, 1500, 500)
+    time.sleep(1)
+    Board.setPWMServoPulse(6, 1500, 500) 
 
-        for c in contours : #Traverse all contours
-            contour_area_temp = math.fabs(cv2.contourArea(c))  #Calculate contour area
-            if contour_area_temp > contour_area_max:
-                contour_area_max = contour_area_temp
-                if contour_area_temp > 300:  #Only when the area is greater than 300, the outline of the largest area is effective to filter interference
-                    area_max_contour = c
-
-        return area_max_contour, contour_area_max  #Return the largest contour
-
-# The angle at which the gripper closes when clamping
-servo1 = 1500
 
 # initial position
 def initMove():
-    Board.setPWMServoPulse(1, servo1, 800)
-    AK.setPitchRangeMoving((0, 8, 10), -90, -90, 0, 1500)
+    servo_init()
 
 def setBuzzer(timer):
     Board.setBuzzer(0)
@@ -75,24 +56,6 @@ def setBuzzer(timer):
     time.sleep(timer)
     Board.setBuzzer(0)
 
-# #Set the RGB light color of the expansion board to match the color to be tracked
-# def set_rgb(color):
-#     if color == "red":
-#         Board.RGB.setPixelColor(0, Board.PixelColor(255, 0, 0))
-#         Board.RGB.setPixelColor(1, Board.PixelColor(255, 0, 0))
-#         Board.RGB.show()
-#     elif color == "green":
-#         Board.RGB.setPixelColor(0, Board.PixelColor(0, 255, 0))
-#         Board.RGB.setPixelColor(1, Board.PixelColor(0, 255, 0))
-#         Board.RGB.show()
-#     elif color == "blue":
-#         Board.RGB.setPixelColor(0, Board.PixelColor(0, 0, 255))
-#         Board.RGB.setPixelColor(1, Board.PixelColor(0, 0, 255))
-#         Board.RGB.show()
-#     else:
-#         Board.RGB.setPixelColor(0, Board.PixelColor(0, 0, 0))
-#         Board.RGB.setPixelColor(1, Board.PixelColor(0, 0, 0))
-#         Board.RGB.show()
 
 count = 0
 _stop = False
@@ -102,6 +65,8 @@ __isRunning = False
 detect_color = 'None'
 start_pick_up = False
 start_count_t1 = True
+obstacle = False
+distance = 0
 
 #Variable reset
 def reset():
@@ -113,7 +78,12 @@ def reset():
     global start_pick_up
     global __target_color
     global start_count_t1
+    global obstacle
+    global distance
 
+
+    obstacle = False
+    distance = 0
     count = 0
     _stop = False
     color_list = []
@@ -125,12 +95,6 @@ def reset():
 
 # app initialization call
 def init():
-    print("ColorSorting Init")
-    # # After ultrasonic is turned on, the light is turned off by default
-    # HWSONAR.setRGBMode(0)
-    # HWSONAR.setPixelColor(0, Board.PixelColor(0,0,0))
-    # HWSONAR.setPixelColor(1, Board.PixelColor(0,0,0))    
-    # HWSONAR.show()
     load_config()
     initMove()
 
@@ -139,7 +103,7 @@ def start():
     global __isRunning
     reset()
     __isRunning = True
-    print("ColorSorting Start")
+
 
 # app stops gameplay calling
 def stop():
@@ -147,8 +111,7 @@ def stop():
     global __isRunning
     _stop = True
     __isRunning = False
-    # set_rgb('None')
-    print("ColorSorting Stop")
+
 
 # app exit gameplay call
 def exit():
@@ -165,15 +128,17 @@ def move():
     global get_roi
     global unreachable
     global __isRunning
+    global obstacle
+    global distance
     
     #coordinates for pick and place
     coordinate = {
-        'place':   (-18, 2, 1),
-        'pick': (0, 10,  2),
+        'place':   (-18, globals()['distance'], 1),
+        'pick': (0, globals()['distance'],  0),
     }
 
     while True:
-        if __isRunning:
+        if __isRunning and not obstacle:
                 
                 initMove()
                 
@@ -246,8 +211,10 @@ def move():
 
                 # end of Place
 
+                initMove()
 
-                Board.setPWMServosPulse([1200, 4, 1,1500, 3,515, 4,2170, 5,945]) # Robotic arm resets
+
+                
                 time.sleep(1.2)
 
                 __isRunning = False
@@ -255,6 +222,8 @@ def move():
                 print("Pick and Place end\n")
 
                 initMove()
+
+                obstacle = False
 
                 if not __isRunning:
                     continue
@@ -272,22 +241,31 @@ if __name__ == '__main__':
     init()
     start()
 
-    th.join()
+    distance_data = []
+    Threshold = 15
 
-    # while True:
-    #     print("in while loop\n")
-    # __target_color = ('red', 'green', 'blue')
-    # cap = cv2.VideoCapture('http://127.0.0.1:8080?action=stream')
-    # while True:
-    #     ret,img = cap.read()
-    #     if ret:
-    #         frame = img.copy()
-    #         Frame = run(frame)  
-    #         frame_resize = cv2.resize(Frame, (320, 240))
-    #         cv2.imshow('frame', frame_resize)
-    #         key = cv2.waitKey(1)
-    #         if key == 27:
-    #             break
-    #     else:
-    #         time.sleep(0.01)
-    # cv2.destroyAllWindows()
+    while True:
+        # th.join()
+        # Ultrasonic sensor measurements
+        dist = HWSONAR.getDistance() / 10.0
+
+        distance_data.append(dist)
+
+        if len(distance_data) > 5:
+            distance_data.pop(0)
+
+        distance = np.mean(distance_data)
+
+        if distance <= Threshold:
+            obstacle = True
+
+            print("Distance to obstacle:\n")
+            print(distance)
+            print("Reached obstacle!\n")
+            time.sleep(0.5)
+        else:
+            obstacle = False
+        time.sleep(0.03)
+
+
+

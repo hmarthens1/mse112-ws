@@ -15,13 +15,11 @@ from ArmIK.ArmMoveIK import *
 import HiwonderSDK.Sonar as Sonar
 import HiwonderSDK.Misc as Misc
 import HiwonderSDK.Board as Board
-import HiwonderSDK.mecanum as mecanum
 from HiwonderSDK.PID import PID
 import pandas as pd
 
 
 # initialization
-chassis = mecanum.MecanumChassis()
 AK = ArmIK()
 pitch_pid = PID(P=0.28, I=0.16, D=0.18)
 
@@ -39,7 +37,7 @@ img_centerx = 320
 # Variable for distance obstacle avoidance
 distance_data = []
 stopMotor = False
-Threshold = 10  # Set threshold for obstacle distance
+Threshold = 15  # Set threshold for obstacle distance
 
 
 # line tracking
@@ -65,15 +63,21 @@ if sys.version_info.major == 2:
     sys.exit(0)
 
 def servo_init():
+
+
     Board.setPWMServoPulse(1, 2500, 300) # Set the pulse width of Servo 1 to 2500 and the running time to 1000 milliseconds
+    time.sleep(0.5)
+    Board.setPWMServoPulse(3, 800, 500) 
+    time.sleep(0.5)
+    Board.setPWMServoPulse(4, 2000, 500) 
+    time.sleep(0.5)
+    Board.setPWMServoPulse(5, 2100, 500) 
     time.sleep(1)
-    Board.setPWMServoPulse(3, 1000, 300) 
+    Board.setPWMServoPulse(6, 1500, 500)
     time.sleep(1)
-    Board.setPWMServoPulse(4, 2000, 1000) 
-    time.sleep(1)
-    Board.setPWMServoPulse(5, 2100, 1000) 
-    time.sleep(1)
-    Board.setPWMServoPulse(6, 1500, 1000) 
+    Board.setPWMServoPulse(6, 1500, 500) 
+
+
 
 # Set the detection color
 def setTargetColor(target_color):
@@ -91,6 +95,7 @@ def load_config():
 
 # initial position
 def initMove():
+    print("init move:\n")
     servo_init()
     MotorStop()
     
@@ -181,13 +186,19 @@ def getAreaMaxContour(contours):
 
 
 def move():
-   
+    #coordinates for pick and place
+
+
     global line_centerx
     global obstacle
 
     i = 0
     while True:
 
+        coordinate = {
+        'place':   (-18, globals()['distance'], 1),
+        'pick': (0, globals()['distance'], 1),  # Adjusting y-coordinate based on the distance
+    }
         if __isRunning:
             if line_centerx != -1 and not obstacle:
                 
@@ -211,40 +222,131 @@ def move():
 
                 if obstacle:
 
-                    time.sleep(0.01)
+                    time.sleep(10)
                     # Pick
-                    print("Obstacle Avoidance Start\n")
+                    print("Pick and Place Start\n")
 
                     print("The obstacle distance is :\n")
+                    print(coordinate['pick'][1])
+                    print("--------------------------\n")
 
-                    # move left
-                    chassis.set_velocity(40,180,0)
-                    time.sleep(1.5)
-                    # move forward
-                    chassis.set_velocity(40,90,0)
-                    time.sleep(1.5)
-                    # move right
-                    chassis.set_velocity(50,0,0)
-                    time.sleep(1.5)
-                    print("complete, now turning off motors\n")
-                    chassis.set_velocity(0,0,0)  # Turn off all motors
+                    Board.setPWMServoPulse(1, 2000, 500) # Open claws
+                    time.sleep(2.5)
 
+                    result = AK.setPitchRangeMoving((coordinate['pick'][0], coordinate['pick'][1], coordinate['pick'][2]), -90, -90, 90) # Run to above the coordinates of the corresponding color
+                    if result == False:
+                        unreachable = True
+                        print("Unreachable\n")
+                    else:
+                        unreachable = False
+                        time.sleep(result[2] / 1000) #If the specified location can be reached, get the running time
+                    
+                    # 2nd trial
+
+                    if unreachable:
+                        result = AK.setPitchRangeMoving((coordinate['pick'][0], coordinate['pick'][1], coordinate['pick'][2]), -90, -90, 90) # Run to above the coordinates of the corresponding color
+
+
+                    # AK.setPitchRangeMoving((coordinate['pick']), -90, -90, 90, 500)  # Pick from the corresponding coordinate
+                    time.sleep(0.5)
+
+                    Board.setPWMServoPulse(1, 1200, 500) # Close paw
+                    time.sleep(1.5)
+
+                    # Motion in between picks, elevate arm
+                    AK.setPitchRangeMoving((0, 6, 18), -90, -90, 90, 1500)
+                    time.sleep(1.5)
+
+                    # Place
+                    result = AK.setPitchRangeMoving((coordinate['place'][0], coordinate['place'][1], coordinate['place'][2]), -180, -90, 180) # Run to above the coordinates of the corresponding color
+                    if result == False:
+                        unreachable = True
+                        print("Unreachable\n")
+                    else:
+                        unreachable = False
+                        time.sleep(result[2] / 1000) #If the specified location can be reached, get the running time
+
+                    # 2nd trial
+
+                    if unreachable:
+                        result = AK.setPitchRangeMoving((coordinate['place'][0], coordinate['place'][1], coordinate['place'][2]), -180, -90, 180) # Run to above the coordinates of the corresponding color
+
+                    # AK.setPitchRangeMoving((coordinate['place']), -90, -90, 90, 500)  # Pick from the corresponding coordinate
+                    time.sleep(1)
+
+                    Board.setPWMServoPulse(1, 2500, 1000) # Open claws
+
+                    # time.sleep(1.5)
+                    # # Motion in between picks, elevate arm
+                    # AK.setPitchRangeMoving((0, 6, 18), -90, -90, 90, 1500)
+                    
+                    time.sleep(1)
+                    initMove()
+
+                    # Board.setPWMServoPulse(6, 1500, 2000) 
+                    
                     obstacle = False
-                    print("Obstacle Avoidance End\n")
-                    time.sleep(1.5)
+                    print("Pick and Place end\n")
+                    time.sleep(1)
+
+                    
 
         else:
             time.sleep(0.01)
  
+
+
 # Run child thread
 th = threading.Thread(target=move)
 th.setDaemon(True)
 th.start()
+# th.join()
 
-def line_tracking (img, __target_color):
+
+
+
+def run(img):
     global line_centerx
+    global __target_color
+
+    global __isRunning
+    global stopMotor
+    global distance_data
+    global obstacle
+    global distance
+
+
+    # Ultrasonic sensor measurements
+    dist = HWSONAR.getDistance() / 10.0
+
+    if __isRunning:
+        
+        distance_data.append(dist)
+
+        if len(distance_data) > 5:
+            distance_data.pop(0)
+
+        distance = np.mean(distance_data)
+
+        if distance <= Threshold:
+            MotorStop()
+            stopMotor = True
+            obstacle = True
+
+            print("Distance to obstacle:\n")
+            print(distance)
+            print("Reached obstacle!\n")
+            time.sleep(0.5)
+        else:
+            obstacle = False
+            stopMotor = False
+        time.sleep(0.03)
+
+
+    
 
     # Camera line tracking
+    
     img_copy = img.copy()
     img_h, img_w = img.shape[:2]
     
@@ -309,53 +411,6 @@ def line_tracking (img, __target_color):
         line_centerx = -1
     return img
 
-# def measure_distance():
-
-
-
-def run(img, __target_color):
-    global __isRunning
-    global stopMotor
-    global distance_data
-    global obstacle
-    global distance
-
-
-    # Ultrasonic sensor measurements
-    dist = HWSONAR.getDistance() / 10.0
-
-    if __isRunning:
-        
-        distance_data.append(dist)
-
-        if len(distance_data) > 5:
-            distance_data.pop(0)
-
-        distance = np.mean(distance_data)
-
-        if distance <= Threshold:
-            MotorStop()
-            stopMotor = True
-            obstacle = True
-
-            print("Distance to obstacle:\n")
-            print(distance)
-            print("Reached obstacle!\n")
-            time.sleep(0.5)
-        else:
-            obstacle = False
-            stopMotor = False
-        time.sleep(0.03)
-
-        img = line_tracking(img,__target_color)
-
-        return img
-
-
-    
-
-    
-
 
 if __name__ == '__main__':
     
@@ -369,7 +424,7 @@ if __name__ == '__main__':
         ret, img = cap.read()
         if ret:
             frame = img.copy()
-            Frame = run(frame, __target_color)  
+            Frame = run(frame)  
             frame_resize = cv2.resize(Frame, (320, 240))
             cv2.imshow('frame', frame_resize)
             key = cv2.waitKey(1)

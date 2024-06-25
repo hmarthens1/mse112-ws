@@ -15,11 +15,13 @@ from ArmIK.ArmMoveIK import *
 import HiwonderSDK.Sonar as Sonar
 import HiwonderSDK.Misc as Misc
 import HiwonderSDK.Board as Board
+import HiwonderSDK.mecanum as mecanum
 from HiwonderSDK.PID import PID
 import pandas as pd
 
 
 # initialization
+chassis = mecanum.MecanumChassis()
 AK = ArmIK()
 pitch_pid = PID(P=0.28, I=0.16, D=0.18)
 
@@ -63,21 +65,15 @@ if sys.version_info.major == 2:
     sys.exit(0)
 
 def servo_init():
-
-
     Board.setPWMServoPulse(1, 2500, 300) # Set the pulse width of Servo 1 to 2500 and the running time to 1000 milliseconds
-    time.sleep(0.5)
-    Board.setPWMServoPulse(3, 1000, 500) 
-    time.sleep(0.5)
-    Board.setPWMServoPulse(4, 2000, 500) 
-    time.sleep(0.5)
-    Board.setPWMServoPulse(5, 2100, 500) 
     time.sleep(1)
-    Board.setPWMServoPulse(6, 1500, 500)
+    Board.setPWMServoPulse(3, 1000, 300) 
     time.sleep(1)
-    Board.setPWMServoPulse(6, 1500, 500) 
-
-
+    Board.setPWMServoPulse(4, 2000, 1000) 
+    time.sleep(1)
+    Board.setPWMServoPulse(5, 2100, 1000) 
+    time.sleep(1)
+    Board.setPWMServoPulse(6, 1500, 1000) 
 
 # Set the detection color
 def setTargetColor(target_color):
@@ -95,7 +91,6 @@ def load_config():
 
 # initial position
 def initMove():
-    print("init move:\n")
     servo_init()
     MotorStop()
     
@@ -186,19 +181,13 @@ def getAreaMaxContour(contours):
 
 
 def move():
-    #coordinates for pick and place
-
-
+   
     global line_centerx
     global obstacle
 
     i = 0
     while True:
 
-        coordinate = {
-        'place':   (-18, 2, 2),
-        'pick': (0, globals()['distance']+2.5, 2),  # Adjusting y-coordinate based on the distance
-    }
         if __isRunning:
             if line_centerx != -1 and not obstacle:
                 
@@ -224,85 +213,140 @@ def move():
 
                     time.sleep(0.01)
                     # Pick
-                    print("Pick and Place Start\n")
+                    print("Obstacle Avoidance Start\n")
 
                     print("The obstacle distance is :\n")
-                    print(coordinate['pick'][1])
-                    print("--------------------------\n")
 
-                    Board.setPWMServoPulse(1, 2000, 500) # Open claws
-                    time.sleep(2.5)
-
-                    result = AK.setPitchRangeMoving((coordinate['pick'][0], coordinate['pick'][1], coordinate['pick'][2]), -90, -90, 90) # Run to above the coordinates of the corresponding color
-                    if result == False:
-                        unreachable = True
-                        print("Unreachable\n")
-                    else:
-                        unreachable = False
-                        time.sleep(result[2] / 1000) #If the specified location can be reached, get the running time
-
-                    # AK.setPitchRangeMoving((coordinate['pick']), -90, -90, 90, 500)  # Pick from the corresponding coordinate
-                    time.sleep(0.5)
-
-                    Board.setPWMServoPulse(1, 1200, 500) # Close paw
+                    # move left
+                    chassis.set_velocity(40,180,0)
                     time.sleep(1.5)
-
-                    # Motion in between picks, elevate arm
-                    AK.setPitchRangeMoving((0, 6, 18), -90, -90, 90, 1500)
+                    # move forward
+                    chassis.set_velocity(40,90,0)
                     time.sleep(1.5)
+                    # move right
+                    chassis.set_velocity(50,0,0)
+                    time.sleep(1.5)
+                    print("complete, now turning off motors\n")
+                    chassis.set_velocity(0,0,0)  # Turn off all motors
 
-                    # Place
-                    result = AK.setPitchRangeMoving((coordinate['place'][0], coordinate['place'][1], coordinate['place'][2]), -90, -90, 0) # Run to above the coordinates of the corresponding color
-                    if result == False:
-                        unreachable = True
-                        print("Unreachable\n")
-                    else:
-                        unreachable = False
-                        time.sleep(result[2] / 1000) #If the specified location can be reached, get the running time
-
-                    # AK.setPitchRangeMoving((coordinate['place']), -90, -90, 90, 500)  # Pick from the corresponding coordinate
-                    time.sleep(1)
-
-                    Board.setPWMServoPulse(1, 2500, 1000) # Open claws
-
-                    # time.sleep(1.5)
-                    # # Motion in between picks, elevate arm
-                    # AK.setPitchRangeMoving((0, 6, 18), -90, -90, 90, 1500)
-                    
-                    time.sleep(1)
-                    initMove()
-
-                    # Board.setPWMServoPulse(6, 1500, 2000) 
-                    
                     obstacle = False
-                    print("Pick and Place end\n")
-                    time.sleep(1)
-
-                    
+                    print("Obstacle Avoidance End\n")
+                    time.sleep(1.5)
 
         else:
             time.sleep(0.01)
  
-
-
 # Run child thread
 th = threading.Thread(target=move)
 th.setDaemon(True)
 th.start()
-# th.join()
 
+red_flag = False
+blue_flag = False
 
-
-
-def run(img):
+def line_tracking (img, __target_color):
     global line_centerx
-    global __target_color
+    global red_flag
+    global blue_flag
 
+    # Camera line tracking
+    img_copy = img.copy()
+    img_h, img_w = img.shape[:2]
+    
+    if not __isRunning or __target_color == ():
+        return img
+     
+    frame_resize = cv2.resize(img_copy, size, interpolation=cv2.INTER_NEAREST)
+    frame_gb = cv2.GaussianBlur(frame_resize, (3, 3), 3)         
+    centroid_x_sum = 0
+    weight_sum = 0
+    center_ = []
+    n = 0
+
+    # Split the image into three parts: upper, middle and lower. This will make the processing faster and more accurate.
+    for r in roi:
+        roi_h = roi_h_list[n]
+        n += 1       
+        blobs = frame_gb[r[0]:r[1], r[2]:r[3]]
+        frame_lab = cv2.cvtColor(blobs, cv2.COLOR_BGR2LAB)  # Convert the image to LAB space
+        
+        color_area_max = None
+        area_max = 0
+        areaMaxContour_max = 0
+        max_area = 0
+        for i in lab_data:
+            if i in __target_color:
+                detect_color = i
+
+
+
+
+
+                
+                frame_mask = cv2.inRange(frame_lab,
+                                         (lab_data[i]['min'][0],
+                                          lab_data[i]['min'][1],
+                                          lab_data[i]['min'][2]),
+                                         (lab_data[i]['max'][0],
+                                          lab_data[i]['max'][1],
+                                          lab_data[i]['max'][2]))  #Perform bitwise operations on the original image and mask
+                eroded = cv2.erode(frame_mask, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))  #corrosion
+                dilated = cv2.dilate(eroded, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))) #Expansion
+
+        cnts = cv2.findContours(dilated , cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_L1)[-2]# Find all contours
+        areaMaxContour, area_max= getAreaMaxContour(cnts)# Find the contour with the largest area
+        if areaMaxContour is not None:#If the contour is not empty
+
+            if area_max > max_area: 
+                max_area = area_max
+                color_area_max = i
+                areaMaxContour_max = areaMaxContour
+
+                # # bonus mark part
+                if color_area_max == 'red':
+                    red_flag = True
+                if color_area_max== 'blue':
+                    blue_flag = True
+
+
+            rect = cv2.minAreaRect(areaMaxContour)#Minimum enclosing rectangle
+            box = np.int0(cv2.boxPoints(rect))#The four vertices of the minimum enclosing rectangle
+            for i in range(4):
+                box[i, 1] = box[i, 1] + (n - 1)*roi_h + roi[0][0]
+                box[i, 1] = int(Misc.map(box[i, 1], 0, size[1], 0, img_h))
+            for i in range(4):                
+                box[i, 0] = int(Misc.map(box[i, 0], 0, size[0], 0, img_w))
+            cv2.drawContours(img, [box], -1, (0,0,255,255), 2)#Draw a rectangle consisting of four points
+        
+            #Get the diagonal points of the rectangle
+            pt1_x, pt1_y = box[0, 0], box[0, 1]
+            pt3_x, pt3_y = box[2, 0], box[2, 1]            
+            center_x, center_y = (pt1_x + pt3_x) / 2, (pt1_y + pt3_y) / 2#Center point       
+            cv2.circle(img, (int(center_x), int(center_y)), 5, (0,0,255), -1)# Draw the center point         
+            center_.append([center_x, center_y])                        
+            #Sum the top, middle and bottom center points according to different weights
+            centroid_x_sum += center_x * r[4]
+            weight_sum += r[4]
+    if weight_sum != 0:
+        #Find the final center point
+        line_centerx = int(centroid_x_sum / weight_sum)
+        cv2.circle(img, (line_centerx, int(center_y)), 10, (0,255,255), -1)# Draw the center point
+    else:
+        line_centerx = -1
+    return img
+
+# def measure_distance():
+
+
+
+def run(img, __target_color):
     global __isRunning
     global stopMotor
     global distance_data
     global obstacle
     global distance
+    global blue_flag
+    global red_flag
 
 
     # Ultrasonic sensor measurements
@@ -331,74 +375,19 @@ def run(img):
             stopMotor = False
         time.sleep(0.03)
 
+        img = line_tracking(img,__target_color)
 
-    
+        if blue_flag and red_flag:
+            MotorStop()
+            stopMotor = True
+            exit()
 
-    # Camera line tracking
-    
-    img_copy = img.copy()
-    img_h, img_w = img.shape[:2]
-    
-    if not __isRunning or __target_color == ():
         return img
-     
-    frame_resize = cv2.resize(img_copy, size, interpolation=cv2.INTER_NEAREST)
-    frame_gb = cv2.GaussianBlur(frame_resize, (3, 3), 3)         
-    centroid_x_sum = 0
-    weight_sum = 0
-    center_ = []
-    n = 0
 
-    # Split the image into three parts: upper, middle and lower. This will make the processing faster and more accurate.
-    for r in roi:
-        roi_h = roi_h_list[n]
-        n += 1       
-        blobs = frame_gb[r[0]:r[1], r[2]:r[3]]
-        frame_lab = cv2.cvtColor(blobs, cv2.COLOR_BGR2LAB)  # Convert the image to LAB space
-        area_max = 0
-        areaMaxContour = 0
-        for i in lab_data:
-            if i in __target_color:
-                detect_color = i
-                frame_mask = cv2.inRange(frame_lab,
-                                         (lab_data[i]['min'][0],
-                                          lab_data[i]['min'][1],
-                                          lab_data[i]['min'][2]),
-                                         (lab_data[i]['max'][0],
-                                          lab_data[i]['max'][1],
-                                          lab_data[i]['max'][2]))  #Perform bitwise operations on the original image and mask
-                eroded = cv2.erode(frame_mask, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))  #corrosion
-                dilated = cv2.dilate(eroded, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))) #Expansion
 
-        cnts = cv2.findContours(dilated , cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_L1)[-2]# Find all contours
-        cnt_large, area = getAreaMaxContour(cnts)# Find the contour with the largest area
-        if cnt_large is not None:#If the contour is not empty
-            rect = cv2.minAreaRect(cnt_large)#Minimum enclosing rectangle
-            box = np.int0(cv2.boxPoints(rect))#The four vertices of the minimum enclosing rectangle
-            for i in range(4):
-                box[i, 1] = box[i, 1] + (n - 1)*roi_h + roi[0][0]
-                box[i, 1] = int(Misc.map(box[i, 1], 0, size[1], 0, img_h))
-            for i in range(4):                
-                box[i, 0] = int(Misc.map(box[i, 0], 0, size[0], 0, img_w))
+    
 
-            cv2.drawContours(img, [box], -1, (0,0,255,255), 2)#Draw a rectangle consisting of four points
-        
-            #Get the diagonal points of the rectangle
-            pt1_x, pt1_y = box[0, 0], box[0, 1]
-            pt3_x, pt3_y = box[2, 0], box[2, 1]            
-            center_x, center_y = (pt1_x + pt3_x) / 2, (pt1_y + pt3_y) / 2#Center point       
-            cv2.circle(img, (int(center_x), int(center_y)), 5, (0,0,255), -1)# Draw the center point         
-            center_.append([center_x, center_y])                        
-            #Sum the top, middle and bottom center points according to different weights
-            centroid_x_sum += center_x * r[4]
-            weight_sum += r[4]
-    if weight_sum != 0:
-        #Find the final center point
-        line_centerx = int(centroid_x_sum / weight_sum)
-        cv2.circle(img, (line_centerx, int(center_y)), 10, (0,255,255), -1)# Draw the center point
-    else:
-        line_centerx = -1
-    return img
+    
 
 
 if __name__ == '__main__':
@@ -408,12 +397,12 @@ if __name__ == '__main__':
     
     signal.signal(signal.SIGINT, Stop)
     cap = cv2.VideoCapture(-1)
-    __target_color = ('blue',)
+    __target_color = ('red','blue')
     while __isRunning:
         ret, img = cap.read()
         if ret:
             frame = img.copy()
-            Frame = run(frame)  
+            Frame = run(frame, __target_color)  
             frame_resize = cv2.resize(Frame, (320, 240))
             cv2.imshow('frame', frame_resize)
             key = cv2.waitKey(1)
